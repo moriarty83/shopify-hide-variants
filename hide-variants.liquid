@@ -1,0 +1,120 @@
+<script
+  defer="defer"
+>
+    // First get our variants that shouldn't be desplayed and their options. 
+    {% liquid
+      assign initial_one = product.selected_or_first_available_variant.option1
+      assign initial_two = product.selected_or_first_available_variant.option2
+      assign initial_three =  product.selected_or_first_available_variant.option3
+      assign active_options = ""
+      for option in product.options
+        assign active_options = active_options | append: option | append: ","
+      endfor 
+      assign option_names = active_options | replace_last: ",", "" 
+      assign restricted_options = ""
+      for variant in product.variants
+        if variant.metafields.custom.hide_variant == true
+          if variant.option1.size > 0
+          assign options = variant.option1 
+          endif
+          if variant.option2.size > 0
+          assign options = options | append: "," | append: variant.option2
+          endif
+          if variant.option3.size > 0
+          assign options = options | append: ","| append: variant.option3 
+          endif
+          assign options = options | append: "***"
+          assign restricted_options = restricted_options| append: options
+        endif
+      endfor 
+    %}
+    //////////////////// LIQUID VARIABLES AND CLEANUP ////////////////
+    // INITIAL OPTIONS
+    let initialOptions = {option1: "{{ initial_one }}", option2: "{{ initial_two }}", option3: "{{ initial_three }}"}
+    Object.keys(initialOptions).forEach(key => {
+      if (initialOptions[key] === "") {
+        initialOptions[key] = null;
+      }
+    });
+
+    // ACTIVE OPTIONS
+    let activeOptions = "{{ option_names }}";
+    activeOptions = activeOptions.split(",");
+
+    // RESTRICTED COMBINATIONS
+    let restrictedCombinations = "{{ restricted_options }}".split("***")
+    for (let i = 0; i < restrictedCombinations.length; i++){
+      if(restrictedCombinations[i].length == 0){
+        delete restrictedCombinations[i]
+      }
+      else{
+        restrictedCombinations[i] = restrictedCombinations[i].split(",")
+      }
+    }
+
+
+    //////////////////// JS VARIABLES ////////////////
+    // Find the option selectors.
+    const optionsFieldsets = []
+    for(const option of activeOptions){
+     
+      const fieldset = document.querySelector(`fieldset[name="${option}"]`)
+      const inputs = fieldset.querySelectorAll('.variant-input')
+      optionsFieldsets.push(inputs)
+    };
+
+
+    //////////////////// METHODS ////////////////
+    updateRestrictedOptions(findMatchingElements(initialOptions))
+    // CHECK FOR RESTRICTED OPTIONS FUNCTION,
+    function updateRestrictedOptions(options){
+      console.log("options: ", options)
+      // VARIABLES TO SEE IF A NEW INPUT MUST BE SELECTED
+      let uncheckedOption;
+      let requireInputChange
+      // CYLCE THROUGH THE OPTIONS FIELDSETS
+        for(let option of optionsFieldsets[optionsFieldsets.length-1]){
+          const input = option.querySelector('input')
+          // IF THE OPTION SHOULD BE HIDDEN
+          if(options.includes(option.dataset.value)){
+            option.style.display="none"
+            // IF THE OPTION INPUT IS CHECKED SET THE VARIABLES
+            if(input.checked){
+              requireInputChange = true
+            }
+
+          }
+          // ELSE
+          else{
+            option.style.display="block"
+            if(!uncheckedOption){
+              uncheckedOption = input
+            }
+          }
+          if(requireInputChange && uncheckedOption){
+            uncheckedOption.click()
+          }
+        }
+                              
+    }
+      
+
+
+
+    function findMatchingElements(options) {
+      console.log("matching optiosn: ", options)
+      return restrictedCombinations
+      .filter(item => {
+        if (options.option1 !== undefined && item[0] !== options.option1 && options.option2 != null) return false;
+        if (options.option2 !== undefined && item[1] !== options.option2 && options.option3) return false;
+        return true;
+      })
+      .map(item => item[item.length - 1]);
+    }
+
+    //////////////////// LISTENERS ////////////////
+    document.addEventListener('updateoptionselectors', function(e) {
+      updateRestrictedOptions(findMatchingElements(e.detail.options))
+  });
+</script>
+`
